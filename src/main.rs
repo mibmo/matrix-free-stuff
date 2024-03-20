@@ -35,6 +35,7 @@ async fn main() -> EResult<()> {
     let addr = std::env::var("WEBHOOK_ADDR")
         .map_err(|_| debug!("no address to listen on specified"))
         .unwrap_or("0.0.0.0:3000".to_string());
+    info!(?addr, "starting webhook listener");
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;
 
