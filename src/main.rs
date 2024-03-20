@@ -19,7 +19,9 @@ struct ApiSecret(pub String);
 async fn main() -> EResult<()> {
     tracing_subscriber::fmt::init();
 
-    let webhook_path = std::env::var("WEBHOOK_PATH").unwrap_or("/".to_string());
+    let webhook_path = std::env::var("WEBHOOK_PATH")
+        .map_err(|_| debug!("no webhook path specified"))
+        .unwrap_or("/".to_string());
     let webhook_secret = std::env::var("WEBHOOK_SECRET")
         .map(ApiSecret)
         .map_err(|_| warn!("no secret specified"))
@@ -30,7 +32,9 @@ async fn main() -> EResult<()> {
         .route(&webhook_path, post(handle_webhooks))
         .with_state(webhook_secret);
 
-    let addr = std::env::var("WEBHOOK_ADDR").unwrap_or("0.0.0.0:3000".to_string());
+    let addr = std::env::var("WEBHOOK_ADDR")
+        .map_err(|_| debug!("no address to listen on specified"))
+        .unwrap_or("0.0.0.0:3000".to_string());
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;
 
