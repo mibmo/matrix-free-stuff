@@ -159,7 +159,7 @@ enum EventError {
     Json(serde_json::Error),
     InvalidEvent(String),
     /// Secret configuration was invalid
-    BadSecret(bool),
+    BadSecret,
 }
 
 impl IntoResponse for EventError {
@@ -173,10 +173,7 @@ impl IntoResponse for EventError {
             EventError::InvalidEvent(name) => {
                 (StatusCode::BAD_REQUEST, format!("invalid event: {name}")).into_response()
             }
-            EventError::BadSecret(true) => (StatusCode::FORBIDDEN, "bad secret").into_response(),
-            EventError::BadSecret(false) => {
-                (StatusCode::UNAUTHORIZED, "no secret given").into_response()
-            }
+            EventError::BadSecret => (StatusCode::UNAUTHORIZED, "unauthorized").into_response(),
         }
     }
 }
@@ -187,19 +184,19 @@ async fn handle_webhooks(
     Json(event): Json<Event>,
 ) -> Result<impl IntoResponse, EventError> {
     let secret = secret.map(|s| s.0);
-    match (secret, event.secret) {
-        (Some(configured), Some(event)) if configured != event => {
+    match (&secret, event.secret) {
+        (Some(configured), Some(event)) if *configured != event => {
             warn!("incorrect secret");
-            return Err(EventError::BadSecret(true));
+            return Err(EventError::BadSecret);
         }
         (Some(_configured), None) => {
             warn!("no secret set for event");
-            return Err(EventError::BadSecret(false));
+            return Err(EventError::BadSecret);
         }
         (None, Some(_event)) => warn!("event had secret, but none is configured"),
         (Some(_), Some(_)) | (None, None) => {
-            trace!("valid secret");
-        },
+            trace!(required = secret.is_some(), "valid secret");
+        }
     }
 
     match event.name.as_str() {
