@@ -1,23 +1,23 @@
 #![feature(absolute_path)]
 
 use axum::{
-    extract::State,
+    extract::{State, Path},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{get, post, put},
     Json, Router,
 };
 use eyre::Result as EResult;
 use freestuffapi::api::GameId;
 use rand::{distributions, Rng};
-use ruma::api::appservice::{Namespaces, Registration, RegistrationInit};
+use ruma::{api::appservice::{self, Registration}, TransactionId};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use tracing::*;
 
 use std::fs::{create_dir_all, File};
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::{Path as FSPath, PathBuf};
 
 const APPSERVICE_ID: &'static str = "matrix-free-stuff";
 const TOKEN_LENGTH: usize = 64;
@@ -47,7 +47,7 @@ async fn main() -> EResult<()> {
 
             let absolute_path = std::path::absolute(&path)
                 .expect("could not get absolute path of registration file");
-            let dir_path = absolute_path.parent().unwrap_or(Path::new("."));
+            let dir_path = absolute_path.parent().unwrap_or(FSPath::new("."));
 
             info!(?dir_path, "creating leading directories");
             if let Err(err) = create_dir_all(dir_path) {
@@ -67,13 +67,13 @@ async fn main() -> EResult<()> {
                     let as_token = random_string(TOKEN_LENGTH);
                     let hs_token = random_string(TOKEN_LENGTH);
 
-                    let registration: Registration = RegistrationInit {
+                    let registration: Registration = appservice::RegistrationInit {
                         id: APPSERVICE_ID.to_string(),
                         url: String::new(),
                         as_token,
                         hs_token,
                         sender_localpart: "free-stuff".to_string(),
-                        namespaces: Namespaces::new(),
+                        namespaces: appservice::Namespaces::new(),
                         rate_limited: None,
                         protocols: None,
                     }
@@ -121,6 +121,7 @@ async fn main() -> EResult<()> {
 
     let client = ruma::client::Client::builder()
         .homeserver_url(homeserver_url)
+        .access_token(Some(registration.as_token.clone()))
         .build::<ruma::client::http_client::HyperNativeTls>()
         .await?;
 
@@ -135,7 +136,10 @@ async fn main() -> EResult<()> {
     let app = Router::new()
         .route(&webhook_path, get(handle_webhooks))
         .route(&webhook_path, post(handle_webhooks))
-        .with_state(webhook_secret);
+        .with_state(webhook_secret)
+        .route("/_matrix/app/v1/transactions/:transaction_id", put(handle_transactions))
+        .with_state(registration)
+        ;
 
     let addr = std::env::var("WEBHOOK_ADDR")
         .map_err(|_| debug!("no address to listen on specified"))
@@ -209,6 +213,13 @@ async fn handle_webhooks(
             Err(EventError::InvalidEvent(name.to_string()))
         }
     }
+}
+
+#[instrument]
+async fn handle_transactions(
+    Path(transaction_id): Path<Box<TransactionId>>,
+) -> impl IntoResponse {
+    StatusCode::OK
 }
 
 #[instrument(skip_all)]
