@@ -197,7 +197,9 @@ async fn handle_webhooks(
             return Err(EventError::BadSecret(false));
         }
         (None, Some(_event)) => warn!("event had secret, but none is configured"),
-        _ => {} // cases left: both set to same & both none
+        (Some(_), Some(_)) | (None, None) => {
+            trace!("valid secret");
+        },
     }
 
     match event.name.as_str() {
