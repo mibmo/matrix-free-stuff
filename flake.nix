@@ -1,6 +1,4 @@
 {
-  description = "Build a cargo project";
-
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
@@ -127,9 +125,34 @@
           drv = matrix-free-stuff;
         };
 
-        devShells.default = craneLib.devShell {
-          checks = self.checks.${system};
-          packages = with pkgs; [ ];
-        };
+        devShells.default =
+          let
+            host = "localhost";
+            port = 8008;
+          in
+          craneLib.devShell {
+            checks = self.checks.${system};
+            packages = with pkgs; [ matrix-conduit ];
+
+            HOMESERVER_URL = "http://${host}:${toString port}";
+            APPSERVICE_REGISTRATION = "registration.yaml";
+            CONDUIT_CONFIG = (pkgs.formats.toml { }).generate "matrix-free-stuff-conduit.toml" {
+              global = {
+                server_name = "localhost";
+                address = "127.0.0.1";
+                inherit port;
+                trusted_servers = [ "matrix.org" ];
+
+                database_backend = "rocksdb";
+                database_path = "/tmp/matrix-free-stuff-conduit";
+
+                allow_registration = true;
+                allow_federation = false;
+                allow_check_for_updates = false;
+
+                enable_lightning_bolt = false;
+              };
+            };
+          };
       });
 }
