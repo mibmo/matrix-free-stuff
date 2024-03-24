@@ -1,18 +1,16 @@
 #![feature(absolute_path)]
 
+mod matrix;
+mod webhook;
+
 use axum::{
-    extract::{State, Path},
-    http::StatusCode,
-    response::{IntoResponse, Response},
     routing::{get, post, put},
-    Json, Router,
+    Router,
 };
 use eyre::Result as EResult;
-use freestuffapi::api::GameId;
 use rand::{distributions, Rng};
-use ruma::{api::appservice::{self, Registration}, TransactionId};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::Value as JsonValue;
+use ruma::api::appservice::{self, Registration};
+use serde::Serialize;
 use tracing::*;
 
 use std::fs::{create_dir_all, File};
@@ -134,12 +132,14 @@ async fn main() -> EResult<()> {
         .ok();
 
     let app = Router::new()
-        .route(&webhook_path, get(handle_webhooks))
-        .route(&webhook_path, post(handle_webhooks))
+        .route(&webhook_path, get(webhook::handle_webhooks))
+        .route(&webhook_path, post(webhook::handle_webhooks))
         .with_state(webhook_secret)
-        .route("/_matrix/app/v1/transactions/:transaction_id", put(handle_transactions))
-        .with_state(registration)
-        ;
+        .route(
+            "/_matrix/app/v1/transactions/:transaction_id",
+            put(matrix::handle_transactions),
+        )
+        .with_state(registration);
 
     let addr = std::env::var("WEBHOOK_ADDR")
         .map_err(|_| debug!("no address to listen on specified"))
@@ -149,88 +149,4 @@ async fn main() -> EResult<()> {
     axum::serve(listener, app).await?;
 
     Ok(())
-}
-
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
-struct Event {
-    #[serde(rename = "event")]
-    name: String,
-    secret: Option<String>,
-    data: JsonValue,
-}
-
-enum EventError {
-    Json(serde_json::Error),
-    InvalidEvent(String),
-    /// Secret configuration was invalid
-    BadSecret,
-}
-
-impl IntoResponse for EventError {
-    fn into_response(self) -> Response {
-        match self {
-            EventError::Json(_) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "event serialization failed",
-            )
-                .into_response(),
-            EventError::InvalidEvent(name) => {
-                (StatusCode::BAD_REQUEST, format!("invalid event: {name}")).into_response()
-            }
-            EventError::BadSecret => (StatusCode::UNAUTHORIZED, "unauthorized").into_response(),
-        }
-    }
-}
-
-#[instrument(skip_all)]
-async fn handle_webhooks(
-    State(secret): State<Option<ApiSecret>>,
-    Json(event): Json<Event>,
-) -> Result<impl IntoResponse, EventError> {
-    let secret = secret.map(|s| s.0);
-    match (&secret, event.secret) {
-        (Some(configured), Some(event)) if *configured != event => {
-            warn!("incorrect secret");
-            return Err(EventError::BadSecret);
-        }
-        (Some(_configured), None) => {
-            warn!("no secret set for event");
-            return Err(EventError::BadSecret);
-        }
-        (None, Some(_event)) => warn!("event had secret, but none is configured"),
-        (Some(_), Some(_)) | (None, None) => {
-            trace!(required = secret.is_some(), "valid secret");
-        }
-    }
-
-    match event.name.as_str() {
-        "free_games" => {
-            let games = handler_data_from_json_value(event.data)?;
-            Ok(hook_free_games(games).await.into_response())
-        }
-        name => {
-            error!(event = name, "invalid event");
-            Err(EventError::InvalidEvent(name.to_string()))
-        }
-    }
-}
-
-#[instrument]
-async fn handle_transactions(
-    Path(transaction_id): Path<Box<TransactionId>>,
-) -> impl IntoResponse {
-    StatusCode::OK
-}
-
-#[instrument(skip_all)]
-fn handler_data_from_json_value<T: DeserializeOwned>(value: JsonValue) -> Result<T, EventError> {
-    serde_json::from_value(value).map_err(|error| {
-        error!(?error, "failed to deserialize handler data");
-        EventError::Json(error)
-    })
-}
-
-#[instrument]
-async fn hook_free_games(games: Vec<GameId>) -> StatusCode {
-    StatusCode::OK
 }
