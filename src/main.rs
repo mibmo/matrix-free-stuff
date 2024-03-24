@@ -20,7 +20,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 const APPSERVICE_ID: &'static str = "matrix-free-stuff";
-const TOKEN_LENGTH: usize = 20;
+const TOKEN_LENGTH: usize = 64;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 struct ApiSecret(pub String);
