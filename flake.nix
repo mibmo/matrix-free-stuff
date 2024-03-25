@@ -129,14 +129,11 @@
           let
             host = "localhost";
             port = 8008;
-          in
-          craneLib.devShell {
-            checks = self.checks.${system};
-            packages = with pkgs; [ matrix-conduit ];
 
-            HOMESERVER_URL = "http://${host}:${toString port}";
-            APPSERVICE_REGISTRATION = "registration.yaml";
-            CONDUIT_CONFIG = (pkgs.formats.toml { }).generate "matrix-free-stuff-conduit.toml" {
+            registrationPath = "./registration.yaml";
+
+            conduitPath = path: "/tmp/matrix-free-stuff-conduit/" + path;
+            conduit-config = (pkgs.formats.toml { }).generate "matrix-free-stuff-conduit.toml" {
               global = {
                 server_name = "localhost";
                 address = "127.0.0.1";
@@ -144,7 +141,7 @@
                 trusted_servers = [ "matrix.org" ];
 
                 database_backend = "rocksdb";
-                database_path = "/tmp/matrix-free-stuff-conduit";
+                database_path = conduitPath "database";
 
                 allow_registration = true;
                 allow_federation = false;
@@ -153,6 +150,50 @@
                 enable_lightning_bolt = false;
               };
             };
+
+            synapsePath = path: "/tmp/matrix-free-stuff-synapse/" + path;
+            synapse-config = (pkgs.formats.yaml { }).generate "matrix-free-stuff-synapse.yaml" {
+              server_name = "localhost";
+              pid_file = synapsePath "homeserver.pid";
+              listeners = [{
+                bind_addresses = [ "127.0.0.1" "::1" ];
+                inherit port;
+                tls = false;
+                type = "http";
+                x_forwarded = true;
+                resources = [ "client" ];
+              }];
+
+              database = {
+                name = "sqlite3";
+                args.database = synapsePath "homeserver.db";
+              };
+
+              log_config = synapsePath "log.config";
+              media_store_path = synapsePath "media_store";
+
+              enable_registration = true;
+              enable_registration_without_verification = true;
+              report_stats = false;
+
+              macaroon_secret_key = "dYdxRkpyg6R5x=V+3pWeVcmw@oUBUaOI=GHFa.M,Drtzd9UN6F";
+              form_secret = "jYXbtfA5eknw0WdFdt384rp_Bdq-0DHtzhotM8=uArj:7;KCAR";
+              signing_key_path = synapsePath "signing.key";
+              trusted_key_servers = [{ server_name = "matrix.org"; }];
+
+              app_service_config_files = [ registrationPath ];
+            };
+          in
+          craneLib.devShell {
+            checks = self.checks.${system};
+            packages = with pkgs; [ matrix-conduit matrix-synapse ];
+
+            RUST_LOG = "matrix_free_stuff=trace";
+            HOMESERVER_URL = "http://${host}:${toString port}";
+            APPSERVICE_REGISTRATION = registrationPath;
+
+            CONDUIT_CONFIG = conduit-config;
+            SYNAPSE_CONFIG = synapse-config;
           };
       });
 }
