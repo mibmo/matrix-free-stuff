@@ -1,6 +1,7 @@
 #![feature(absolute_path)]
 
 mod matrix;
+mod utils;
 mod webhook;
 
 use axum::{
@@ -117,11 +118,13 @@ async fn main() -> EResult<()> {
         }
     };
 
+    /*
     let client = ruma::client::Client::builder()
         .homeserver_url(homeserver_url)
         .access_token(Some(registration.as_token.clone()))
         .build::<ruma::client::http_client::HyperNativeTls>()
         .await?;
+    */
 
     let webhook_path = std::env::var("WEBHOOK_PATH")
         .map_err(|_| debug!("no webhook path specified"))
@@ -135,6 +138,7 @@ async fn main() -> EResult<()> {
         .route(&webhook_path, get(webhook::handle_webhooks))
         .route(&webhook_path, post(webhook::handle_webhooks))
         .with_state(webhook_secret)
+        .route("/_matrix/app/v1/ping", post(matrix::handle_ping))
         .route(
             "/_matrix/app/v1/transactions/:transaction_id",
             put(matrix::handle_transactions),
@@ -145,8 +149,9 @@ async fn main() -> EResult<()> {
         .map_err(|_| debug!("no address to listen on specified"))
         .unwrap_or("0.0.0.0:3000".to_string());
     info!(?addr, "starting webhook listener");
-    let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    axum::Server::bind(&addr.parse()?)
+        .serve(app.into_make_service())
+        .await?;
 
     Ok(())
 }
