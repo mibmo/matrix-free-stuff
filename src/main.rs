@@ -134,6 +134,11 @@ async fn main() -> EResult<()> {
         .map_err(|_| warn!("no secret specified"))
         .ok();
 
+    let state = utils::AppState {
+        registration,
+        ping_transactions: Default::default(),
+    };
+
     let app = Router::new()
         .route(&webhook_path, get(webhook::handle_webhooks))
         .route(&webhook_path, post(webhook::handle_webhooks))
@@ -143,7 +148,7 @@ async fn main() -> EResult<()> {
             "/_matrix/app/v1/transactions/:transaction_id",
             put(matrix::handle_transactions),
         )
-        .with_state(registration);
+        .with_state(state.clone());
 
     let addr = std::env::var("WEBHOOK_ADDR")
         .map_err(|_| debug!("no address to listen on specified"))

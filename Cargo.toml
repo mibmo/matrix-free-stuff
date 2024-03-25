@@ -18,7 +18,8 @@ tracing-subscriber = "0.3.18"
 [dependencies.axum]
 version = "0.6.20"
 features = [
-  "macros"
+  "macros",
+  "headers",
 ]
 
 [dependencies.ruma]
