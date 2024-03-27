@@ -6,44 +6,22 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
-use hyper::Uri;
 use ruma::{
     api::appservice::{event::push_events, ping::send_ping},
     OwnedTransactionId, RoomId,
 };
 use tracing::*;
 
-use std::time::{Duration, Instant};
-
-const PING_TIMEOUT: Duration = Duration::from_millis(15000);
-
-#[instrument(skip(registration, authorization, ping_transactions))]
+#[instrument(skip(registration, authorization))]
 #[axum::debug_handler]
 pub async fn handle_ping(
-    State(AppState {
-        registration,
-        ping_transactions,
-        ..
-    }): State<AppState>,
+    State(AppState { registration, .. }): State<AppState>,
     TypedHeader(authorization): TypedHeader<headers::Authorization<headers::authorization::Bearer>>,
     RumaRequest(request): RumaRequest<send_ping::v1::Request>,
 ) -> Result<RumaResponse<send_ping::v1::Response>, RumaResponse<ClientError>> {
     if registration.hs_token != authorization.0.token() {
         warn!("homeserver token in registration and ping don't match");
         return Err(RumaResponse(RumaError::Unauthorized.into()));
-    }
-
-    if let Some(transaction_id) = request.transaction_id {
-        if ping_transactions
-            .lock()
-            .expect("could not get ping transactions")
-            .remove(&transaction_id)
-            .as_ref()
-            .map(Instant::elapsed)
-            .map_or(true, |duration| duration > PING_TIMEOUT)
-        {
-            warn!(?transaction_id, "invalid transaction id");
-        }
     }
 
     Ok(RumaResponse(send_ping::v1::Response::new()))

@@ -143,7 +143,7 @@ async fn main() -> EResult<()> {
     let state = utils::AppState {
         registration,
         client,
-        ping_transactions: Default::default(),
+        transactions: Default::default(),
     };
 
     let app = Router::new()

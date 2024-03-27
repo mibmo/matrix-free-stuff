@@ -13,16 +13,15 @@ use ruma::{
         client::error::{ErrorBody, ErrorKind},
         IncomingRequest, OutgoingResponse,
     },
-    OwnedTransactionId,
+    OwnedTransactionId, TransactionId,
 };
 
 use serde_json::json;
 use thiserror::Error;
 use tracing::*;
 
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
 
 pub type RumaClient = ruma::client::Client<ruma::client::http_client::HyperNativeTls>;
 
@@ -33,7 +32,26 @@ pub struct ApiSecret(pub String);
 pub struct AppState {
     pub registration: Registration,
     pub client: RumaClient,
-    pub ping_transactions: Arc<Mutex<HashMap<OwnedTransactionId, Instant>>>,
+    pub transactions: Arc<Transactions>,
+}
+
+#[derive(Debug, Default)]
+pub struct Transactions(Mutex<HashSet<OwnedTransactionId>>);
+
+impl Transactions {
+    pub fn add<T: AsRef<TransactionId>>(&mut self, id: T) -> bool {
+        self.0
+            .lock()
+            .expect("unable to get lock")
+            .insert(id.as_ref().into())
+    }
+
+    pub fn check<T: AsRef<TransactionId>>(&self, id: T) -> bool {
+        self.0
+            .lock()
+            .expect("unable to get lock")
+            .contains(id.as_ref())
+    }
 }
 
 #[derive(Debug, Error)]
