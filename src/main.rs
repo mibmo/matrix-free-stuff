@@ -123,13 +123,11 @@ async fn main() -> EResult<()> {
         }
     };
 
-    /*
-    let client = ruma::client::Client::builder()
+    let client: utils::RumaClient = ruma::client::Client::builder()
         .homeserver_url(homeserver_url)
         .access_token(Some(registration.as_token.clone()))
-        .build::<ruma::client::http_client::HyperNativeTls>()
+        .build()
         .await?;
-    */
 
     let webhook_path = std::env::var("WEBHOOK_PATH")
         .map_err(|_| debug!("no webhook path specified"))
@@ -141,6 +139,7 @@ async fn main() -> EResult<()> {
 
     let state = utils::AppState {
         registration,
+        client,
         ping_transactions: Default::default(),
     };
 

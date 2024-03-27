@@ -24,12 +24,15 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+pub type RumaClient = ruma::client::Client<ruma::client::http_client::HyperNativeTls>;
+
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct ApiSecret(pub String);
 
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub registration: Registration,
+    pub client: RumaClient,
     pub ping_transactions: Arc<Mutex<HashMap<OwnedTransactionId, Instant>>>,
 }
 
