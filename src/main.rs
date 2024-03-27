@@ -151,7 +151,7 @@ async fn main() -> EResult<()> {
         )
         .with_state(state.clone());
 
-    info!(?addr, "starting webhook listener");
+    info!(?addr, "starting webserver");
     axum::Server::bind(&addr.parse()?)
         .serve(app.into_make_service())
         .await?;
