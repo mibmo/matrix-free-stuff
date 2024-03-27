@@ -26,6 +26,10 @@ const TOKEN_LENGTH: usize = 64;
 async fn main() -> EResult<()> {
     tracing_subscriber::fmt::init();
 
+    let addr = std::env::var("LISTEN_ADDR")
+        .map_err(|_| debug!("no address to listen on specified"))
+        .unwrap_or("0.0.0.0:3000".to_string());
+
     let homeserver_url = std::env::var("HOMESERVER_URL")
         .expect("required environment variable HOMESERVER_URL not set");
 
@@ -65,7 +69,7 @@ async fn main() -> EResult<()> {
 
                     let registration: Registration = appservice::RegistrationInit {
                         id: APPSERVICE_ID.to_string(),
-                        url: String::new(),
+                        url: addr.to_string(),
                         as_token,
                         hs_token,
                         sender_localpart: "free-stuff".to_string(),
@@ -147,9 +151,6 @@ async fn main() -> EResult<()> {
         )
         .with_state(state.clone());
 
-    let addr = std::env::var("WEBHOOK_ADDR")
-        .map_err(|_| debug!("no address to listen on specified"))
-        .unwrap_or("0.0.0.0:3000".to_string());
     info!(?addr, "starting webhook listener");
     axum::Server::bind(&addr.parse()?)
         .serve(app.into_make_service())
