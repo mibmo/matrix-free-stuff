@@ -161,7 +161,10 @@
                 tls = false;
                 type = "http";
                 x_forwarded = true;
-                resources = [ "client" ];
+                resources = [{
+                  names = [ "client" ];
+                  compress = false;
+                }];
               }];
 
               database = {
