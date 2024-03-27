@@ -16,13 +16,10 @@ use tracing::*;
 
 use std::fs::{create_dir_all, File};
 use std::io::Write;
-use std::path::{Path as FSPath, PathBuf};
+use std::path::{Path, PathBuf};
 
 const APPSERVICE_ID: &'static str = "matrix-free-stuff";
 const TOKEN_LENGTH: usize = 64;
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
-struct ApiSecret(pub String);
 
 #[tokio::main]
 #[instrument]
@@ -46,7 +43,7 @@ async fn main() -> EResult<()> {
 
             let absolute_path = std::path::absolute(&path)
                 .expect("could not get absolute path of registration file");
-            let dir_path = absolute_path.parent().unwrap_or(FSPath::new("."));
+            let dir_path = absolute_path.parent().unwrap_or(Path::new("."));
 
             info!(?dir_path, "creating leading directories");
             if let Err(err) = create_dir_all(dir_path) {
@@ -130,7 +127,7 @@ async fn main() -> EResult<()> {
         .map_err(|_| debug!("no webhook path specified"))
         .unwrap_or("/".to_string());
     let webhook_secret = std::env::var("WEBHOOK_SECRET")
-        .map(ApiSecret)
+        .map(utils::ApiSecret)
         .map_err(|_| warn!("no secret specified"))
         .ok();
 

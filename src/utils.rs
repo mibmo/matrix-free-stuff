@@ -23,6 +23,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub struct ApiSecret(pub String);
+
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub registration: Registration,

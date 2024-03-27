@@ -1,4 +1,4 @@
-use crate::ApiSecret;
+use crate::utils::ApiSecret;
 
 use axum::{
     extract::State,

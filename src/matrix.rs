@@ -9,7 +9,6 @@ use axum::{
 use ruma::{
     api::appservice::{
         ping::send_ping::v1::{Request as PingRequest, Response as PingResponse},
-        Registration,
     },
     OwnedTransactionId,
 };
