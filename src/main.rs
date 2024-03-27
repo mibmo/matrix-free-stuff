@@ -73,7 +73,7 @@ async fn main() -> EResult<()> {
 
                     let registration: Registration = appservice::RegistrationInit {
                         id: APPSERVICE_ID.to_string(),
-                        url: addr.to_string(),
+                        url: format!("http://{addr}"),
                         as_token,
                         hs_token,
                         sender_localpart: SENDER_LOCALPART.to_string(),
