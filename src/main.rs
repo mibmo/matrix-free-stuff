@@ -19,6 +19,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 const APPSERVICE_ID: &'static str = "matrix-free-stuff";
+const SENDER_LOCALPART: &'static str = "_freestuff";
 const TOKEN_LENGTH: usize = 64;
 
 #[tokio::main]
@@ -67,13 +68,16 @@ async fn main() -> EResult<()> {
                     let as_token = random_string(TOKEN_LENGTH);
                     let hs_token = random_string(TOKEN_LENGTH);
 
+                    let mut namespaces = appservice::Namespaces::new();
+                    namespaces.users.push(appservice::Namespace::new(true, format!("@{SENDER_LOCALPART}:.*")));
+
                     let registration: Registration = appservice::RegistrationInit {
                         id: APPSERVICE_ID.to_string(),
                         url: addr.to_string(),
                         as_token,
                         hs_token,
-                        sender_localpart: "free-stuff".to_string(),
-                        namespaces: appservice::Namespaces::new(),
+                        sender_localpart: SENDER_LOCALPART.to_string(),
+                        namespaces,
                         rate_limited: None,
                         protocols: None,
                     }
