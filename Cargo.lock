@@ -962,6 +962,7 @@ dependencies = [
  "http",
  "hyper",
  "hyper-tls",
+ "ruma-client-api",
  "ruma-common",
  "serde",
  "serde_html_form",

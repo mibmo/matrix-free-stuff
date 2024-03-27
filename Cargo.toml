@@ -27,7 +27,7 @@ features = [
 version = "0.9.4"
 features = [
   "appservice-api",
-  "client",
-  "client-api",
+  "client-api-c",
+  "client-ext-client-api",
   "client-hyper-native-tls",
 ]

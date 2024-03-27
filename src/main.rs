@@ -69,7 +69,10 @@ async fn main() -> EResult<()> {
                     let hs_token = random_string(TOKEN_LENGTH);
 
                     let mut namespaces = appservice::Namespaces::new();
-                    namespaces.users.push(appservice::Namespace::new(true, format!("@{SENDER_LOCALPART}:.*")));
+                    namespaces.users.push(appservice::Namespace::new(
+                        true,
+                        format!("@{SENDER_LOCALPART}:.*"),
+                    ));
 
                     let registration: Registration = appservice::RegistrationInit {
                         id: APPSERVICE_ID.to_string(),
