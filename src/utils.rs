@@ -5,18 +5,19 @@ use axum::{
     response::{IntoResponse, Response},
     BoxError,
 };
+
+pub use ruma::api::client::Error as ClientError;
 use ruma::{
     api::{
         appservice::Registration,
-        client::{
-            error::{ErrorBody, ErrorKind},
-            Error as ClientError,
-        },
+        client::error::{ErrorBody, ErrorKind},
         IncomingRequest, OutgoingResponse,
     },
     OwnedTransactionId,
 };
+
 use serde_json::json;
+use thiserror::Error;
 use tracing::*;
 
 use std::collections::HashMap;
@@ -32,6 +33,36 @@ pub struct AppState {
     pub ping_transactions: Arc<Mutex<HashMap<OwnedTransactionId, Instant>>>,
 }
 
+#[derive(Debug, Error)]
+pub enum RumaError {
+    #[error("Unauthorized")]
+    Unauthorized,
+    #[error("Deserialization error")]
+    Deserialization,
+}
+
+impl From<RumaError> for ClientError {
+    fn from(err: RumaError) -> Self {
+        let message = err.to_string();
+        match err {
+            RumaError::Unauthorized => ClientError {
+                status_code: StatusCode::UNAUTHORIZED,
+                body: ErrorBody::Standard {
+                    kind: ErrorKind::Unauthorized,
+                    message,
+                },
+            },
+            RumaError::Deserialization => ClientError {
+                status_code: StatusCode::BAD_REQUEST,
+                body: ErrorBody::Standard {
+                    kind: ErrorKind::BadJson,
+                    message,
+                },
+            },
+        }
+    }
+}
+
 pub struct RumaRequest<T: IncomingRequest>(pub T);
 
 impl<T: IncomingRequest> RumaRequest<T> {
@@ -44,10 +75,9 @@ impl<T: IncomingRequest> RumaRequest<T> {
         // make a mock request to use with T::try_from_http_request
         let mut new_request = http::Request::builder().method(req.method.clone()).uri(uri);
 
-        // @TODO: map_err to a RumaResponse and ?
         let path_params: Path<Vec<String>> = Path::<_>::from_request_parts(&mut req, state)
             .await
-            .unwrap();
+            .map_err(|_| RumaError::Deserialization)?;
         let mut path_params = path_params.0;
         let any_path = T::METADATA.history.all_paths().next();
         if let Some(path) = any_path {
@@ -61,8 +91,9 @@ impl<T: IncomingRequest> RumaRequest<T> {
             new_request = new_request.header(k.clone(), v.clone());
         }
 
-        // @TODO: map_err to a RumaResponse and ?
-        let http_req = new_request.body(body).unwrap();
+        let http_req = new_request
+            .body(body)
+            .map_err(|_| RumaError::Deserialization)?;
 
         let inner = T::try_from_http_request(http_req, &path_params).unwrap();
         Ok(Self(inner))

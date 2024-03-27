@@ -1,4 +1,4 @@
-use crate::utils::{AppState, RumaRequest, RumaResponse};
+use crate::utils::{AppState, ClientError, RumaError, RumaRequest, RumaResponse};
 
 use axum::{
     extract::{Path, State, TypedHeader},
@@ -7,9 +7,7 @@ use axum::{
     response::IntoResponse,
 };
 use ruma::{
-    api::appservice::{
-        ping::send_ping::v1::{Request as PingRequest, Response as PingResponse},
-    },
+    api::appservice::ping::send_ping::v1::{Request as PingRequest, Response as PingResponse},
     OwnedTransactionId,
 };
 use tracing::*;
@@ -28,11 +26,10 @@ pub async fn handle_ping(
     }): State<AppState>,
     TypedHeader(authorization): TypedHeader<headers::Authorization<headers::authorization::Bearer>>,
     RumaRequest(request): RumaRequest<PingRequest>,
-) -> Result<RumaResponse<PingResponse>, impl IntoResponse> {
-    //) -> Result<RumaResponse<PingResponse>, RumaError> {
+) -> Result<RumaResponse<PingResponse>, RumaResponse<ClientError>> {
     if registration.hs_token != authorization.0.token() {
         warn!("homeserver token in registration and ping don't match");
-        return Err("no, brotha.".into_response());
+        return Err(RumaResponse(RumaError::Unauthorized.into()));
     }
 
     if let Some(transaction_id) = request.transaction_id {
