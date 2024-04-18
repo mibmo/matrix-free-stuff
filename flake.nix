@@ -197,6 +197,11 @@
 
             CONDUIT_CONFIG = conduit-config;
             SYNAPSE_CONFIG = synapse-config;
+
+            shellHook = ''
+              alias test_conduit='mkdir -p /tmp/matrix-free-stuff/conduit; conduit'
+              alias test_synapse='mkdir -p /tmp/matrix-free-stuff/synapse; synapse_homeserver -c $SYNAPSE_CONFIG'
+            '';
           };
       });
 }
